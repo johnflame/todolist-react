@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
+import Store from './store'
+
 var classNames = require('classnames')
 /****************************
  *
@@ -9,7 +11,7 @@ var classNames = require('classnames')
 class Header extends Component {
   constructor(props) {
     super(props);
-    this.state = { newTodo: "", counter: 0, };
+    this.state = { newTodo: "", counter: 0 };
     this.handleChange = this.handleChange.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
   }
@@ -20,7 +22,7 @@ class Header extends Component {
   handleKeyUp(event) { //当用户敲击enter，把输入的值生成一个对象，添加进todolist之中
     if (event.keyCode === 13 && this.state.newTodo.length > 0) {
       const todo = {
-        id: this.state.counter,  //作为key，唯一
+        id: this.state.counter + Date.parse(new Date()),  //作为key，唯一
         msg: this.state.newTodo.trim(),
         isCompleted: false,   //完成状态
         isEdit: false,          //编辑状态
@@ -28,7 +30,7 @@ class Header extends Component {
       this.props.addTodo(todo);   //调用父级方法修改父级中的state
       this.setState((prevState) => ({  //清空是输入框，并将counter+1作为下一个key
         newTodo: "",
-        counter: prevState.counter + 1,
+        counter: prevState.counter + 1
       }))
     }
 
@@ -61,12 +63,12 @@ class Todo extends Component {
     this.handleEdit = this.toggle.bind(this, this.props.todo, "e");//更改isEdit状态
     this.remove = this.remove.bind(this, this.props.todo);       //移除todo
     this.editing = this.editing.bind(this, this.props.todo);      //显示编辑界面
-    this.finishEdit = this.finishEdit.bind(this, this.props.todo);
-    this.handleBlur = this.handleBlur.bind(this,this.props.todo);
-    this.editChange = this.editChange.bind(this);
-    this.editFocus = this.editFocus.bind(this);
+    this.finishEdit = this.finishEdit.bind(this, this.props.todo);//完成编辑
+    this.handleBlur = this.handleBlur.bind(this, this.props.todo);//失去焦点时
+    this.editChange = this.editChange.bind(this);//同步修改editText
+    this.editFocus = this.editFocus.bind(this);//自动获取焦点
   }
-  componentDidUpdate(){
+  componentDidUpdate() {//组件更新完成之后，调用获取焦点函数
     this.editFocus();
   }
   toggle(todo, type) {  //改变单个todo的状态
@@ -110,7 +112,7 @@ class Todo extends Component {
       this.setState({ editText: "" });
     }
   }
-  handleBlur(todo){  //失去焦点时，关闭编辑
+  handleBlur(todo) {  //失去焦点时，关闭编辑
     const obj = {
       id: todo.id,
       isEdit: false,
@@ -120,7 +122,7 @@ class Todo extends Component {
   }
   render() {
     return (
-      <li className={classNames('todo',{editing:this.props.todo.isEdit,completed:this.props.todo.isCompleted})}>
+      <li className={classNames('todo', { editing: this.props.todo.isEdit, completed: this.props.todo.isCompleted })}>
         <div className="view">
           <input className="toggle" type="checkbox"
             checked={this.props.todo.isCompleted}
@@ -151,17 +153,17 @@ function TodoList(props) {
       toggleOne={props.toggleOne}
       rmTodo={props.rmTodo} />
   ).reverse();//从数组尾部开始渲染。
-  function toggleAll(event){
-    const value= event.target.checked;
+  function toggleAll(event) {  //改变所有todo的isCompletedd
+    const value = event.target.checked;
     console.log(event.target)
     props.toggleAll(value);
   }
   return (
     <section className="main">
-      {props.length>0 &&
+      {props.length > 0 &&//条件渲染
         <input className="toggle-all" type="checkbox" checked={props.isAll} onChange={toggleAll} />
       }
-      
+
       <ul className="todo-list">
         {listItems}
       </ul>
@@ -176,22 +178,23 @@ function TodoList(props) {
  *        Footer组件
  *
  * **************************/
-  function Footer(props) {
-    return (
-      <footer className="footer">
-        <span className="todo-count">
-          <strong>{props.remaining.length}</strong> {props.remaining.length > 1 ? 'items' : 'item'} left
+function Footer(props) {
+  const visibility = props.visibility;
+  return (
+    <footer className="footer">
+      <span className="todo-count">
+        <strong>{props.remaining.length}</strong> {props.remaining.length > 1 ? 'items' : 'item'} left
         </span>
-        <ul className="filters">
-          <li><a href="#/all" >All</a></li>
-          <li><a href="#/active">Active</a></li>
-          <li><a href="#/completed">Completed</a></li>
-        </ul>
-        <button className="clear-completed" onClick={props.clearCompleted}>
-          Clear completed
+      <ul className="filters">
+        <li><a href="#/all" className={classNames({ selected: visibility === "all" })}>All</a></li>
+        <li><a href="#/active" className={classNames({ selected: visibility === "active" })}>Active</a></li>
+        <li><a href="#/completed" className={classNames({ selected: visibility === "completed" })}>Completed</a></li>
+      </ul>
+      <button className="clear-completed" onClick={props.clearCompleted}>
+        Clear completed
         </button>
-      </footer>
-    );
+    </footer>
+  );
 }
 
 
@@ -203,38 +206,61 @@ function TodoList(props) {
 class App extends Component {
   constructor(props) {
     super(props);
-    this.state = { todoList: [], visibility: "all" }
+    this.state = { todoList: Store.fetchList(), visibility: "all", }
     this.addTodo = this.addTodo.bind(this);
     this.toggleOne = this.toggleOne.bind(this);
     this.rmTodo = this.rmTodo.bind(this);
     this.filters = this.filters.bind(this);
     this.clearCompleted = this.clearCompleted.bind(this);
-    this.toggleAll = this.toggleAll.bind(this)
+    this.toggleAll = this.toggleAll.bind(this);
+    this.hashChange = this.hashChange.bind(this)
+
   }
-  toggleAll(value){
+  componentWillMount() {   //监听url变化
+    window.addEventListener('hashchange', this.hashChange)
+  }
+  componentDidUpdate() {//组件更新完成之后，调用获取焦点函数
+    Store.save(this.state.todoList)
+  }
+  hashChange(){//hash值改变时，根据hash值更改visibility
+      let hashName = window.location.hash.replace(/#\/?/, '').toLowerCase();
+      const filtersA = ['all', 'active', 'completed'];
+      if (filtersA.includes(hashName)) {
+        this.setState({
+          visibility: hashName
+        })
+      }
+      else {
+        window.location.hash = '';
+        this.setState({
+          visibility:"all"
+        })
+      }
+    }
+  toggleAll(value) {
     console.log(value);
     const todos = this.state.todoList.slice();
-    todos.forEach(function(todo){
-      todo.isCompleted =value
+    todos.forEach(function (todo) {
+      todo.isCompleted = value
     })
     this.setState({
-      todoList:todos
+      todoList: todos
     })
   }
-  filters(type){
+  filters(type) {   //过滤器，相当于switch
     const todos = this.state.todoList.slice();
     const filter = {
-      all:function(){
+      all: function () {
         return todos;
       },
-      active:function(){
-        return todos.filter((todo)=>!todo.isCompleted)
+      active: function () {
+        return todos.filter((todo) => !todo.isCompleted)
       },
-      completed:function(){
-        return todos.filter((todo)=>todo.isCompleted)
+      completed: function () {
+        return todos.filter((todo) => todo.isCompleted)
       },
     }
-    if(typeof filter[type]!=='function'){
+    if (typeof filter[type] !== 'function') {
       return [];
     }
     return filter[type]();
@@ -260,7 +286,7 @@ class App extends Component {
       });
     }
   }
-  rmTodo(todo) {
+  rmTodo(todo) {  //移除todo
     const todos = this.state.todoList.slice();
     const index = todos.findIndex((element) => {
       return element.id === todo.id;
@@ -270,15 +296,15 @@ class App extends Component {
       todoList: todos
     });
   }
-  clearCompleted(){
-    this.setState(prevState=>({
-      todoList:this.filters("active")
+  clearCompleted() { //清除已完成的todo
+    this.setState(prevState => ({
+      todoList: this.filters("active")
     }))
   }
   render() {
-    let filterL = this.filters(this.state.visibility);
-    let remaining = this.filters("active");
-    let isAll = remaining.length===0 ? true:false;
+    let filterL = this.filters(this.state.visibility);//根据visibility显示不同状态的todo
+    let remaining = this.filters("active");  //过滤出未完成的
+    let isAll = remaining.length === 0 ? true : false;//是否全部已完成
     return (
       <section className="todoapp">
         <Header addTodo={this.addTodo} />
@@ -288,7 +314,7 @@ class App extends Component {
           rmTodo={this.rmTodo}
           toggleAll={this.toggleAll}
           isAll={isAll} />
-        <Footer remaining={remaining} clearCompleted={this.clearCompleted}/>
+        <Footer remaining={remaining} clearCompleted={this.clearCompleted} visibility={this.state.visibility} />
       </section>
     );
   }
