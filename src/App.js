@@ -1,7 +1,11 @@
 import React, { Component } from 'react';
 import './App.css';
 var classNames = require('classnames')
-
+/****************************
+ *
+ *        Header组件
+ *
+ * **************************/
 class Header extends Component {
   constructor(props) {
     super(props);
@@ -44,7 +48,11 @@ class Header extends Component {
     );
   }
 }
-
+/****************************
+ *
+ *        Todo组件
+ *
+ * **************************/
 class Todo extends Component {
   constructor(props) {
     super(props);
@@ -116,7 +124,7 @@ class Todo extends Component {
         <div className="view">
           <input className="toggle" type="checkbox"
             checked={this.props.todo.isCompleted}
-            onClick={this.handleCompleted} />
+            onChange={this.handleCompleted} />
           <label onDoubleClick={this.editing}>{this.props.todo.msg}</label>
           <button className="destroy" onClick={this.remove}></button>
         </div>
@@ -131,7 +139,11 @@ class Todo extends Component {
   }
 }
 
-
+/****************************
+ *
+ *        TodoList组件
+ *
+ * **************************/
 function TodoList(props) {
   const listItems = props.filterList.map((todo) =>
     <Todo key={todo.id}
@@ -139,10 +151,17 @@ function TodoList(props) {
       toggleOne={props.toggleOne}
       rmTodo={props.rmTodo} />
   ).reverse();//从数组尾部开始渲染。
-
+  function toggleAll(event){
+    const value= event.target.checked;
+    console.log(event.target)
+    props.toggleAll(value);
+  }
   return (
     <section className="main">
-      <input className="toggle-all" type="checkbox" />
+      {props.length>0 &&
+        <input className="toggle-all" type="checkbox" checked={props.isAll} onChange={toggleAll} />
+      }
+      
       <ul className="todo-list">
         {listItems}
       </ul>
@@ -152,49 +171,74 @@ function TodoList(props) {
 
 
 
-class Footer extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { remaining: "", };
-  }
-  render() {
+/****************************
+ *
+ *        Footer组件
+ *
+ * **************************/
+  function Footer(props) {
     return (
       <footer className="footer">
         <span className="todo-count">
-          <strong>{this.state.remaining}</strong> {this.state.remaining > 1 ? 'items' : 'item'} left
+          <strong>{props.remaining.length}</strong> {props.remaining.length > 1 ? 'items' : 'item'} left
         </span>
         <ul className="filters">
           <li><a href="#/all" >All</a></li>
           <li><a href="#/active">Active</a></li>
           <li><a href="#/completed">Completed</a></li>
         </ul>
-        <button className="clear-completed">
+        <button className="clear-completed" onClick={props.clearCompleted}>
           Clear completed
         </button>
       </footer>
     );
-  }
 }
 
 
+/****************************
+ *
+ *        App组件
+ *
+ * **************************/
 class App extends Component {
   constructor(props) {
     super(props);
-    this.state = { todoList: [], filterList: [], visibiliti: "all" }
+    this.state = { todoList: [], visibility: "all" }
     this.addTodo = this.addTodo.bind(this);
     this.toggleOne = this.toggleOne.bind(this);
     this.rmTodo = this.rmTodo.bind(this);
-    // this.toggleAll = this.toggleAll.bind(this)
+    this.filters = this.filters.bind(this);
+    this.clearCompleted = this.clearCompleted.bind(this);
+    this.toggleAll = this.toggleAll.bind(this)
   }
-  // toggleAll(value){
-  //   const todos = this.state.todoList.slice();
-  //   todos.forEach(function(todo){
-  //     todo.isCompleted =value
-  //   })
-  //   this.setState({
-  //     todoList:todos
-  //   })
-  // }
+  toggleAll(value){
+    console.log(value);
+    const todos = this.state.todoList.slice();
+    todos.forEach(function(todo){
+      todo.isCompleted =value
+    })
+    this.setState({
+      todoList:todos
+    })
+  }
+  filters(type){
+    const todos = this.state.todoList.slice();
+    const filter = {
+      all:function(){
+        return todos;
+      },
+      active:function(){
+        return todos.filter((todo)=>!todo.isCompleted)
+      },
+      completed:function(){
+        return todos.filter((todo)=>todo.isCompleted)
+      },
+    }
+    if(typeof filter[type]!=='function'){
+      return [];
+    }
+    return filter[type]();
+  }
   toggleOne(obj) {   //更改每一个Todo的状态，内容
     const todos = this.state.todoList.slice();
     const index = todos.findIndex((element) => {
@@ -226,15 +270,25 @@ class App extends Component {
       todoList: todos
     });
   }
+  clearCompleted(){
+    this.setState(prevState=>({
+      todoList:this.filters("active")
+    }))
+  }
   render() {
+    let filterL = this.filters(this.state.visibility);
+    let remaining = this.filters("active");
+    let isAll = remaining.length===0 ? true:false;
     return (
       <section className="todoapp">
         <Header addTodo={this.addTodo} />
-        <TodoList filterList={this.state.todoList}
+        <TodoList length={this.state.todoList.length}
+          filterList={filterL}
           toggleOne={this.toggleOne}
           rmTodo={this.rmTodo}
-          toggleAll={this.toggleAll} />
-        <Footer />
+          toggleAll={this.toggleAll}
+          isAll={isAll} />
+        <Footer remaining={remaining} clearCompleted={this.clearCompleted}/>
       </section>
     );
   }
